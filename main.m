@@ -1,0 +1,787 @@
+% Initialize Psychtoolbox and open a window
+close all;
+clearvars;
+clear PsychHID;
+clear KbCheck;
+
+Screen('Preference', 'SkipSyncTests', 2);
+PsychDefaultSetup(2);
+
+% Get the screen numbers
+screens = Screen('Screens');
+
+% Select the external screen if it exists. Otherwise, use the native screen
+screenNumber = max(screens);
+
+% Define colors
+grey = [128, 128, 128];
+red = [255, 102, 102];
+white = [255, 255, 255];
+black = [0, 0, 0];
+blue = [167, 199, 231];
+
+% Define keycodes for 'f' and 'j'
+keyCodeF = KbName('f');
+keyCodeJ = KbName('j');
+
+% Define window size
+wWidth = 900;
+wHeight = 650;
+
+% Variables to take user input
+subjectName = input('Subject Name: ', 's');
+dateStr = string(datetime('today'), 'yyyy-MM-dd'); 
+
+% Create directory to hold trial images
+saveDir = ['captured_images_',subjectName];
+if ~exist(saveDir, 'dir')
+    mkdir(saveDir);
+end
+
+% Ask whether testing dots or faces
+choice = input("Stimulus Type?\n[1] Min Size\n[2] Emotion\n[3] Dots Num\n" + ...
+                "[4] Gabors\n[5] Average Location\n");
+
+numInstances = 1;
+if (choice == 1)
+    Rep = 4*numInstances;
+elseif (choice == 2)
+    Rep = 4*numInstances;
+elseif (choice == 3)
+    Rep = 4*numInstances;
+elseif (choice == 4)
+    Rep = 2*numInstances;
+elseif (choice == 5)
+    Rep = 6;
+end
+
+% Creates sets array
+if (choice == 1)
+    sets = [1,2,3,4];
+elseif (choice == 2)
+    sets = [1,2,3,4];
+elseif (choice == 3)
+    sets = [1,2,3,4];
+elseif (choice == 4)
+    sets = [1,2];
+end
+
+% Randomize sets array
+if ~(choice == 5)
+    sets = sets(randperm(length(sets)));
+end
+
+% Open an on-screen window with grey background color
+[window, windowRect] = Screen('OpenWindow', screenNumber, grey, [0,0,wWidth,wHeight]);
+
+%----------------------------------------------------------------------
+%                       Default Setups
+%----------------------------------------------------------------------
+if (choice == 1)
+    % Default for min size
+    margin = 75;
+    amount = 8;
+
+    % Define discrete sets as means Left and Right
+    first = [60,80];
+    second = [80,60];
+    third = [50,60];
+    fourth = [60,50];
+
+    % Matrix to record results
+    results = cell(Rep, 4);
+
+elseif (choice == 2)
+    % Default for faces
+    amount = 8;
+    margin = 60;
+    diam = margin;
+
+    % Define discrete sets as emotional means Left and Right
+    first = [26,16];
+    second = [26,34];
+    third = [16,26];
+    fourth = [34,26];
+
+    % Matrix to record results
+    results = cell(Rep, 5);
+
+    % Face Upload
+    % Load faces images from directory
+    imageDir = '/Users/leoqi/Desktop/Summer_Proj/faces';
+    imageFiles = dir(fullfile(imageDir, '*.jpg'));
+
+    % Preallocate cell array to hold face image textures
+    numImages = length(imageFiles);
+    imageTextures = cell(1, numImages);
+    imageFileNames = cell(1, numImages);
+
+    % Activate for alpha
+    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
+
+    % Apply SHINE
+
+    imgs = cell(numImages, 1);
+    
+    for i = 1:numImages
+
+        imagePath = fullfile(imageDir, imageFiles(i).name);
+
+        imgs{i} = im2double(imread(imagePath));
+        if size(imgs{i,1}, 3) > 3
+            imgs{i} = imgs{i}(:,:,1:3); % Retain only the first three channels
+        end
+
+    end
+
+    targetSize = size(imgs{1});
+    for i = 1:numImages
+        imgs{i} = imresize(imgs{i}, targetSize(1:2)); % Resize to target size
+    end
+
+    imgs = SHINE(imgs);
+
+    % Load each image and create textures
+    for i = 1:numImages
+        img = imgs{i,1};
+        imageMatrix = remove_background(img);
+        imageTextures{i} = Screen('MakeTexture', window, imageMatrix);
+        imageFileNames{i} = imageFiles(i).name;  % Store the original file name
+    end
+
+elseif (choice == 3)
+    % Default for dots num
+    dots_base = randi([30,90],1,Rep);
+    margin = 60;
+    diam = 20;
+
+    % Define discrete ratios of dots
+    first = [3,5];
+    second = [5,3];
+    third = [5,6];
+    fourth = [6,5];
+
+    % Matrix to record results
+    results = cell(Rep, 4);
+
+elseif (choice == 4)
+    % Default for gabors
+    margin = 60;
+    diam = 80;
+    amount = 8;
+
+    % Define discrete sets as tilt values Left and Right
+    first = [25,15];
+    second = [15,25];
+
+    % Activate for alpha
+    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
+
+    % Matrix to record results
+    results = cell(Rep, 5);
+
+elseif (choice == 5)
+    % Default for average location
+    amount = 16;
+    margin = 20;
+    diam = margin;
+
+    % Matrix to record results
+    results = cell(Rep, 5);
+end
+
+%----------------------------------------------------------------------
+%                       Experimental Loop
+%----------------------------------------------------------------------
+% Main execution loop
+for j = 1:Rep
+    
+%----------------------------------------------------------------------
+%                       Set Up Based On Choice
+%----------------------------------------------------------------------
+    key = 0; % 1 is f key, 2 is j key, 0 for no input
+
+    % Dichotomy selection for min size
+    if (choice == 1)
+        switch (sets(j))
+   
+            case 1
+                min_size_choice = first;
+            case 2
+                min_size_choice = second;
+            case 3
+                min_size_choice = third;
+            case 4
+                min_size_choice = fourth;
+        end
+    end
+    
+    % Select image for emotions trial
+    if (choice == 2)
+
+        switch (sets(j))
+   
+            case 1
+                emotion_choice = first;
+            case 2
+                emotion_choice = second;
+            case 3
+                emotion_choice = third;
+            case 4
+                emotion_choice = fourth;
+        end
+        
+
+        % Load separate array of random faces to display for directory
+        selectImageTextures_L = cell(1, amount);
+        selectedFileNames_L= cell(1, amount);
+
+        selectImageTextures_R = cell(1, amount);
+        selectedFileNames_R= cell(1, amount);
+
+        % Make two standard distributions
+        mu_left = emotion_choice(1);
+        mu_right = emotion_choice(2);
+            
+        sigma = 10;
+
+        normal_distribution_left = mu_left + sigma * randn(amount, 1);
+        normal_distribution_right = mu_right + sigma * randn(amount, 1);
+
+        distribution_left = round(normal_distribution_left);
+        distribution_right = round(normal_distribution_right);
+        
+        % Set up based on how face pictures stored
+        face_sets = [0,51,102,153,204,255,0,204]; %Last 2 values added due to insufficient sets
+
+        face_sets = face_sets(randperm(length(face_sets)));
+
+        for i = 1:amount
+
+            % Select textures based on the distribution
+            idx_L = face_sets(i) + distribution_left(i);
+            idx_R = face_sets(i) + distribution_right(i);
+
+            if (idx_L < 0)
+                idx_L = 1;
+            end
+            if (idx_L > numImages)
+                idx_L = numImages;
+            end
+            if (idx_R < 0)
+                idx_R = 1;
+            end
+            if (idx_R > numImages)
+                idx_R = numImages;
+            end
+
+            % Left
+            selectImageTextures_L{i} = imageTextures{idx_L};
+            selectedFileNames_L{i} = imageFileNames{idx_L};
+
+            % Right
+            selectImageTextures_R{i} = imageTextures{idx_R};
+            selectedFileNames_R{i} = imageFileNames{idx_R};
+
+        end
+
+    end
+
+    % Select amount for dots num trial and gen location
+    if (choice == 3)
+        switch (sets(j))
+   
+            case 1
+                num_choice = first;
+            case 2
+                num_choice = second;
+            case 3
+                num_choice = third;
+            case 4
+                num_choice = fourth;
+        end
+        
+
+        amount_left = round(dots_base(j) * (num_choice(1)/10));
+        amount_right = round(dots_base(j) * (num_choice(2)/10));
+
+    end
+
+    % Select set of average tilt
+    if (choice == 4)
+        switch (sets(j))
+            case 1
+                tilt_choice = first;
+            case 2
+                tilt_choice = second;
+        end
+    end
+
+    if (choice == 5)
+        % Generate discrete concentration points
+        x_segments = wWidth / 5 * (1:4);
+        y_segments = wHeight / 4 * (1:3);
+
+        points = zeros(length(y_segments) * length(x_segments), 2);
+        
+        index = 1;
+        for y = y_segments
+            for x = x_segments
+                points(index,:) = [x,y];
+                index = index + 1;
+            end
+        end
+
+        % Randomly selects a concentration point
+        sel = randi(index - 1, 1);
+
+        x_jitter = wWidth / 10;
+        y_jitter = wHeight / 8;
+
+        shape = randi(3,1);
+
+        if (shape == 1)
+            x_cord = randi([round(points(sel,1)-x_jitter), round(points(sel,1)+x_jitter)], 1);
+            y_cord = randi([round(points(sel,2)-y_jitter), round(points(sel,2)+y_jitter)], 1);
+            
+        elseif (shape == 2)
+            x_cord = randi([round(points(sel,1)-2*x_jitter), round(points(sel,1)+2*x_jitter)], 1);
+            y_cord = randi([round(points(sel,2)-y_jitter), round(points(sel,2)+y_jitter)], 1);
+        else
+            x_cord = randi([round(points(sel,1)-x_jitter), round(points(sel,1)+x_jitter)], 1);
+            y_cord = randi([round(points(sel,2)-2*y_jitter), round(points(sel,2)+2*y_jitter)], 1);
+
+        end
+
+        % Ensure center within margin
+        if (x_cord < (x_segments(1) + 20))
+            x_cord = round(x_segments(1) + 20);
+        end
+        if (x_cord > (x_segments(4) - 20))
+            x_cord = round(x_segments(4) - 20);
+        end
+        if (y_cord < (y_segments(1) + 20))
+            y_cord = round(y_segments(1) + 20);
+        end
+        if (y_cord > (y_segments(3) - 20))
+            y_cord = round(y_segments(3) - 20);
+        end
+
+        x1 = round(x_cord-x_jitter);
+        x2 = round(x_cord+x_jitter);
+        y1 = round(y_cord-y_jitter);
+        y2 = round(y_cord+y_jitter);
+    end
+
+    % Generate location
+    if (choice == 1)
+        rects = genLocation_min_size (amount, margin, wWidth, wHeight, min_size_choice);
+
+    elseif (choice == 2)
+        rects = genLocation_emotion (amount, margin, wWidth, wHeight, diam);
+
+    elseif (choice == 3)
+        rects = genLocation_num (amount_left, amount_right, margin, wWidth, wHeight, diam);
+
+    elseif (choice == 4)
+        rects = genLocation_gabor (amount, margin, wWidth, wHeight, diam);
+
+    elseif (choice == 5) 
+        rects = genLocation_cluster (amount, x1, x2, y1, y2, wWidth, wHeight, diam);
+
+    end
+
+%----------------------------------------------------------------------
+%                       Trial Display
+%----------------------------------------------------------------------
+
+    % Grey Background
+    Screen('FillRect',window,grey,[0,0,wWidth,wHeight])
+    
+    % Draw cross at center
+    [xCenter, yCenter] = RectCenter(windowRect);
+    crossLength = 20;
+    drawCross(window, xCenter, yCenter, crossLength, white);
+    
+    % Output
+    Screen('Flip', window);
+
+    % Wait 1 second
+    WaitSecs(1);
+    
+    if (choice == 1 || choice == 3 || choice == 5)
+        % Draw dots all at once
+        Screen('FillOval', window, red, rects');
+        drawCross(window, xCenter, yCenter, crossLength, white);
+    elseif (choice == 2)
+        % Draw faces
+        for i = 1:amount
+            Screen('DrawTexture', window, selectImageTextures_L{i}, [], rects(i,:));
+            Screen('DrawTexture', window, selectImageTextures_R{i}, [], rects(amount+i,:));
+            drawCross(window, xCenter, yCenter, crossLength, white);
+        end
+    elseif (choice == 4)
+        % Make standard distribution of angles centered at tilt choice
+        mu_left = tilt_choice(1);
+        mu_right = tilt_choice(2);
+        sigma = 8;
+
+        % Generate normally distributed random numbers using randn
+        normal_angles_left = mu_left + sigma * randn(amount, 1);
+        normal_angles_right = mu_right + sigma * randn(amount, 1);
+        angles_left = round(normal_angles_left);
+        angles_right = round(normal_angles_right);
+        
+        % Left
+        for i = 1:amount
+            gmat = gabor_alpha( ...
+                150, ...        % texture size (rows)
+                [], ...         % (cols)
+                [], ...  % mean luminance    
+                [], ...  % contrast
+                0.04, ...  % spatial freq. cycle/pixel
+                [], ...         % phase (sine grating)
+                angles_left(i), ...          % tilt angle (sine grating)
+                25 ... % gaussian envelope size (sd)
+                );
+    
+            gtex = Screen('MakeTexture', window, gmat);
+            Screen('DrawTexture', window, gtex, [], rects(i,:));
+            drawCross(window, xCenter, yCenter, crossLength, white);
+        end
+
+        % Right
+        for i = 1:amount
+            gmat = gabor_alpha( ...
+                150, ...        % texture size (rows)
+                [], ...         % (cols)
+                [], ...  % mean luminance    
+                [], ...  % contrast
+                0.04, ...  % spatial freq. cycle/pixel
+                [], ...         % phase (sine grating)
+                angles_right(i), ...          % tilt angle (sine grating)
+                25 ... % gaussian envelope size (sd)
+                );
+    
+            gtex = Screen('MakeTexture', window, gmat);
+            Screen('DrawTexture', window, gtex, [], rects(amount+i,:));
+            drawCross(window, xCenter, yCenter, crossLength, white);
+        end
+
+    end
+    
+    % Output & capture image
+    Screen('Flip', window);
+    trialImage = Screen('GetImage', window);
+    img_name = sprintf('capturedImage_%03d.png', j);
+    filename = fullfile(saveDir, img_name);
+    imwrite(trialImage, filename);
+
+    % Wait 1 second
+    WaitSecs(1);
+    
+    % Buffer Screen
+    Screen('FillRect',window,black,[0,0,wWidth,wHeight])
+    if (choice == 1)
+        Screen('TextSize',window,30);
+        DrawFormattedText(window, ['SELECT WHICH SIDE HAS GREATER AVERAGE SIZE\n' ...
+            'F for LEFT | J for RIGHT'], 'center', 'center', white);
+    end
+    if (choice == 2)
+        Screen('TextSize',window,30);
+        DrawFormattedText(window, ['SELECT WHICH SIDE APPEARS ANGRIER\n' ...
+            'F for LEFT | J for RIGHT'], 'center', 'center', white);
+    end
+    if (choice == 3)
+        Screen('TextSize',window,30);
+        DrawFormattedText(window, ['SELECT WHICH SIDE HAS MORE DOTS\n' ...
+            'F for LEFT | J for RIGHT'], 'center', 'center', white);
+    end
+    if (choice == 4)
+        Screen('TextSize',window,30);
+        DrawFormattedText(window, ['SELECT WHICH SIDE IS MORE TILTED ON AVERAGE\n' ...
+            'F for LEFT | J for RIGHT'], 'center', 'center', white);
+    end
+    if (choice == 5)
+        Screen('TextSize',window,30);
+        DrawFormattedText(window, 'ClICK ON CENTER OF THE DOTS SHOWN', 'center', 'center', white);
+    end
+    Screen('Flip', window);
+    
+    if (choice == 5)
+        WaitSecs(3);
+    end
+
+    % Begin counting
+    StartTime = GetSecs;
+
+    % Key check
+    if ~(choice == 5)
+        while (GetSecs - StartTime) < 3
+            [~, ~, keyCode] = KbCheck;
+            if keyCode(keyCodeF)
+                key = 1;
+                break;
+            end 
+            if keyCode(keyCodeJ)
+                key = 2;
+                break;
+            end 
+        end
+    end
+
+    % Mouse tracking for cluster task
+    if (choice == 5)
+
+        % Set up record
+        click_record = [0,0];
+
+        SetMouse(0, 0, window);
+        [screenXpixels, screenYpixels] = Screen('WindowSize', window);
+
+        ifi = Screen('GetFlipInterval', window);
+        waitframes = 1;
+        vbl = Screen('Flip', window);
+        
+        buttons = 0;
+        while ~any(buttons)
+            % Get the current position of the mouse
+            [x, y, buttons] = GetMouse(window);
+    
+            x = min(x, screenXpixels);
+            y = min(y, screenYpixels);
+
+            Screen('DrawDots', window, [x y], 10, blue, [], 2);
+            
+            click_record = [x,y];
+
+            vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
+        end
+    end
+
+    % Display response message for this trial
+    Screen('FillRect',window,black,[0,0,wWidth,wHeight])
+    Screen('TextSize',window,60);
+
+%----------------------------------------------------------------------
+%                       Response Checks
+%----------------------------------------------------------------------
+    if (choice == 1)
+        if (GetSecs - StartTime) >= 3
+            DrawFormattedText(window, double('LATE'),'center','center',white);
+            cond = 0;
+        else
+            if (sets(j) == 2 || sets(j) == 4)
+                if (key == 1)
+                    DrawFormattedText(window, double('CORRECT'),'center','center',white);
+                    cond = 1;
+                else
+                    DrawFormattedText(window, double('INCORRECT'),'center','center',white);
+                    cond = 0;
+                end
+            else 
+                if (key == 2)
+                    DrawFormattedText(window, double('CORRECT'),'center','center',white);
+                    cond = 1;
+                else
+                    DrawFormattedText(window, double('INCORRECT'),'center','center',white);
+                    cond = 0;
+                end
+            end
+        end 
+    end
+
+    if (choice == 2)
+        if (GetSecs - StartTime) >= 3
+            DrawFormattedText(window, double('LATE'),'center','center',white);
+            cond = 0;
+        else
+            left_emo_count = 0; right_emo_count = 0;
+
+            % Calculate average emotional value
+            for k = 1:amount
+                left_emo_str = regexp(selectedFileNames_L{k}, '(\d+)(?=\.jpg)', 'match');
+                if ~isempty(left_emo_str)
+                    left_emo_count = left_emo_count + str2double(left_emo_str{1});
+                end
+                right_emo_str = regexp(selectedFileNames_R{k}, '(\d+)(?=\.jpg)', 'match');
+                if ~isempty(right_emo_str)
+                    right_emo_count = right_emo_count + str2double(right_emo_str{1});
+                end
+            end
+
+            % Make comparison to determine cond
+            if (left_emo_count > right_emo_count)
+                if (key == 1)
+                    DrawFormattedText(window, double('CORRECT'),'center','center',white);
+                    cond = 1;
+                else
+                    DrawFormattedText(window, double('INCORRECT'),'center','center',white);
+                    cond = 0;
+                end
+            else
+                if (key == 2)
+                    DrawFormattedText(window, double('CORRECT'),'center','center',white);
+                    cond = 1;
+                else
+                    DrawFormattedText(window, double('INCORRECT'),'center','center',white);
+                    cond = 0;
+                end
+            end
+
+        end
+    end
+
+    if (choice == 3)
+        if (GetSecs - StartTime) >= 3
+            DrawFormattedText(window, double('LATE'),'center','center',white);
+            cond = 0;
+        else
+            if (amount_left > amount_right)
+                if (key == 1)
+                    DrawFormattedText(window, double('CORRECT'),'center','center',white);
+                    cond = 1;
+                else
+                    DrawFormattedText(window, double('INCORRECT'),'center','center',white);
+                    cond = 0;
+                end
+            else
+                if (key == 2)
+                    DrawFormattedText(window, double('CORRECT'),'center','center',white);
+                    cond = 1;
+                else
+                    DrawFormattedText(window, double('INCORRECT'),'center','center',white);
+                    cond = 0;
+                end
+            end
+
+        end
+    end
+
+    if (choice == 4)
+        if (GetSecs - StartTime) >= 3
+            DrawFormattedText(window, double('LATE'),'center','center',white);
+            cond = 0;
+        else
+            if (tilt_choice(1) > tilt_choice(2))
+                if (key == 1)
+                    DrawFormattedText(window, double('CORRECT'),'center','center',white);
+                    cond = 1;
+                else
+                    DrawFormattedText(window, double('INCORRECT'),'center','center',white);
+                    cond = 0;
+                end
+            else
+                if (key == 2)
+                    DrawFormattedText(window, double('CORRECT'),'center','center',white);
+                    cond = 1;
+                else
+                    DrawFormattedText(window, double('INCORRECT'),'center','center',white);
+                    cond = 0;
+                end
+            end
+
+        end
+    end
+
+    if (choice == 5)
+        Screen('TextSize',window,30);
+        DrawFormattedText(window, 'Mouse click detected!','center','center',white);
+        Screen('Flip', window);
+        cond = 0;
+
+        WaitSecs(2);
+    end
+
+    % Output
+    Screen('Flip', window);
+
+    % Wait 1 second
+    WaitSecs(1);
+
+    % Record data for this trial
+    if (choice == 1)
+        results{j, 1} = j;
+        results{j, 2} = sets(j);
+        results{j, 3} = key;
+        results{j, 4} = cond;
+    elseif (choice == 2)
+        results{j, 1} = j;
+        results{j, 2} = sets(j);
+        results{j, 3} = key;
+        results{j, 4} = cond;
+
+        % Recording emotion file names
+        results{j, 5} = 'LEFT: ';
+        for k = 1:amount
+            results{j, 5} = [results{j, 5} ' ' selectedFileNames_L{k}];
+        end
+        results{j, 5} = [results{j, 5} ' ' 'Right: '];
+        for k = 1:amount
+            results{j, 5} = [results{j, 5} ' ' selectedFileNames_R{k}];
+        end
+    elseif (choice == 3)
+        results{j, 1} = j;
+        results{j, 2} = sets(j);
+        results{j, 3} = key;
+        results{j, 4} = cond;
+    elseif (choice == 4) 
+        results{j, 1} = j;
+        results{j, 2} = sets(j);
+        results{j, 3} = 'LEFT: ';
+        for k = 1:amount
+            results{j, 3} = [results{j, 3} ' ' num2str(angles_left(k))];
+        end
+        results{j, 3} = [results{j, 3} ' ' 'Right: '];
+        for k = 1:amount
+            results{j, 3} = [results{j, 3} ' ' num2str(angles_right(k))];
+        end
+        results{j, 4} = key;
+        results{j, 5} = cond;
+    elseif (choice == 5)
+        results{j, 1} = j;
+        results{j, 2} = num2str(x_cord);
+        results{j, 2} = [results{j, 2} ' ' num2str(y_cord)];
+        results{j, 3} = num2str(round(click_record(1)));
+        results{j, 3} = [results{j, 3} ' ' num2str(round(click_record(2)))];
+        results{j, 4} = cond;
+        if (j == 1)
+            results{j, 5} = round(points);
+        end
+    end
+
+end
+    % Manually close textures
+    if (choice == 2)
+        for i = 1:numImages
+            Screen('Close',imageTextures{i});
+        end
+    end
+
+    % Clear the screen and Close resources
+    sca;
+    Screen('CloseAll');
+
+    % Save matrix as txt file
+    if (choice == 1)
+        Table = cell2table(results, 'VariableNames', {'Trial', 'Set', 'Key', 'Cond'});
+    elseif (choice == 2)
+        Table = cell2table(results, 'VariableNames', {'Trial', 'Set', 'Key', 'Cond', 'Files'});
+    elseif (choice == 3)
+        Table = cell2table(results, 'VariableNames', {'Trial', 'Set', 'Key', 'Cond'});
+    elseif (choice == 4)
+        Table = cell2table(results, 'VariableNames', {'Trial', 'Set', 'Angle', 'Key', 'Cond'});
+    elseif (choice == 5)
+        Table = cell2table(results, 'VariableNames', {'Trial', 'Center', 'User_click', 'Key', 'Cond'});
+    end
+
+    % Display results
+    disp(Table);
+
+    matrixName = strcat(subjectName,'_',dateStr,'.xls');
+    writetable(Table, matrixName);
+
+%%
+sca;
+clear PsychHID;
+clear KbCheck;
