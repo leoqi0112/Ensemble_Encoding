@@ -476,20 +476,18 @@ for j = 1:Rep
         else
             format_str = '6:5';
         end
+        img_name = sprintf('%s_capturedImage_%03d.png', format_str, j);
     elseif (choice == 3)
         if isequal(num_choice, first)
-            format_str = '3:5';
+            format_str = '6:8';
         elseif isequal(num_choice, second)
-            format_str = '5:3';
+            format_str = '8:6';
         elseif isequal(num_choice, third)
             format_str = '5:6';
         else
             format_str = '6:5';
         end
     end
-
-    img_name = sprintf('%s_capturedImage_%03d.png', format_str, j);
-
     filename = fullfile(saveDir, img_name);
     imwrite(trialImage, filename);
 
