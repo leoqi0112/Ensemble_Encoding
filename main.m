@@ -302,7 +302,7 @@ for j = 1:Rep
 
     % Select set of average tilt
     if (choice == 4)
-        switch (sets(j))
+        switch (sets(mod(j - 1, 2) + 1))
             case 1
                 tilt_choice = first;
             case 2
@@ -485,6 +485,12 @@ for j = 1:Rep
             format_str = '5:6';
         else
             format_str = '6:5';
+        end
+    elseif (choice == 4)
+        if isequal(tilt_choice, first)
+            format_str = '25:15';
+        elseif isequal(tilt_choice, second)
+            format_str = '15:25';
         end
     end
 
@@ -743,7 +749,7 @@ for j = 1:Rep
         results{j, 4} = cond;
     elseif (choice == 4) 
         results{j, 1} = j;
-        results{j, 2} = sets(j);
+        results{j, 2} = sets(mod(j - 1, 2) + 1);
         results{j, 3} = 'LEFT: ';
         for k = 1:amount
             results{j, 3} = [results{j, 3} ' ' num2str(angles_left(k))];
