@@ -14,7 +14,7 @@ function result = genLocation_num(amount_left, amount_right, margin, wWidth, wHe
 
         % Left side
         while ~validLocation
-            xLoc = randi([margin, wWidth/2 - margin]);
+            xLoc = randi([margin, wWidth/2 - 2*margin]);
             yLoc = randi([margin, wHeight - margin]);
             % Check if the location is valid (not in the center circle)
             if abs(xLoc - wWidth/2) > rad && abs(yLoc - wHeight/2) > rad
@@ -36,7 +36,7 @@ function result = genLocation_num(amount_left, amount_right, margin, wWidth, wHe
 
         % Left side
         while ~validLocation
-            xLoc = randi([wWidth/2 + margin, wWidth - margin]);
+            xLoc = randi([wWidth/2 + 2*margin, wWidth - margin]);
             yLoc = randi([margin, wHeight - margin]);
             % Check if the location is valid (not in the center circle)
             if abs(xLoc - wWidth/2) > rad && abs(yLoc - wHeight/2) > rad

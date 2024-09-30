@@ -10,8 +10,6 @@ PsychDefaultSetup(2);
 
 % Get the screen numbers
 screens = Screen('Screens');
-
-% Select the external screen if it exists. Otherwise, use the native screen
 screenNumber = max(screens);
 
 % Define colors
@@ -44,7 +42,7 @@ end
 choice = input("Stimulus Type?\n[1] Min Size\n[2] Emotion\n[3] Dots Num\n" + ...
                 "[4] Gabors\n[5] Average Location\n");
 
-numInstances = 10;
+numInstances = 1;
 if (choice == 1)
     Rep = 4*numInstances;
 elseif (choice == 2)
@@ -52,7 +50,7 @@ elseif (choice == 2)
 elseif (choice == 3)
     Rep = 4*numInstances;
 elseif (choice == 4)
-    Rep = 2*numInstances;
+    Rep = 4*numInstances;
 elseif (choice == 5)
     Rep = 6;
 end
@@ -65,7 +63,7 @@ elseif (choice == 2)
 elseif (choice == 3)
     sets = [1,2,3,4];
 elseif (choice == 4)
-    sets = [1,2];
+    sets = [1,2,3,4];
 end
 
 % Randomize sets array
@@ -166,6 +164,8 @@ elseif (choice == 4)
     % Define discrete sets as tilt values Left and Right
     first = [25,15];
     second = [15,25];
+    third = [15,10];
+    fourth = [10,15];
 
     % Activate for alpha
     Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
@@ -302,11 +302,15 @@ for j = 1:Rep
 
     % Select set of average tilt
     if (choice == 4)
-        switch (sets(mod(j - 1, 2) + 1))
+        switch (sets(mod(j - 1, 4) + 1))
             case 1
                 tilt_choice = first;
             case 2
                 tilt_choice = second;
+            case 3
+                tilt_choice = third;
+            case 4
+                tilt_choice = fourth;
         end
     end
 
@@ -331,20 +335,8 @@ for j = 1:Rep
         x_jitter = wWidth / 10;
         y_jitter = wHeight / 8;
 
-        shape = randi(3,1);
-
-        if (shape == 1)
-            x_cord = randi([round(points(sel,1)-x_jitter), round(points(sel,1)+x_jitter)], 1);
-            y_cord = randi([round(points(sel,2)-y_jitter), round(points(sel,2)+y_jitter)], 1);
-            
-        elseif (shape == 2)
-            x_cord = randi([round(points(sel,1)-2*x_jitter), round(points(sel,1)+2*x_jitter)], 1);
-            y_cord = randi([round(points(sel,2)-y_jitter), round(points(sel,2)+y_jitter)], 1);
-        else
-            x_cord = randi([round(points(sel,1)-x_jitter), round(points(sel,1)+x_jitter)], 1);
-            y_cord = randi([round(points(sel,2)-2*y_jitter), round(points(sel,2)+2*y_jitter)], 1);
-
-        end
+        x_cord = randi([round(points(sel,1)-x_jitter), round(points(sel,1)+x_jitter)], 1);
+        y_cord = randi([round(points(sel,2)-y_jitter), round(points(sel,2)+y_jitter)], 1);
 
         % Ensure center within margin
         if (x_cord < (x_segments(1) + 20))
@@ -360,10 +352,39 @@ for j = 1:Rep
             y_cord = round(y_segments(3) - 20);
         end
 
-        x1 = round(x_cord-x_jitter);
-        x2 = round(x_cord+x_jitter);
-        y1 = round(y_cord-y_jitter);
-        y2 = round(y_cord+y_jitter);
+        % Ensure center not overlapping with cross
+        if (abs(x_cord - wWidth/2) < 200)
+            if (x_cord < wWidth/2)
+                x_cord = wWidth/2-100;
+            else
+                x_cord = wWidth/2+100;
+            end
+        end
+
+       if (abs(y_cord - wHeight/2) < 200)
+            if (y_cord < wHeight/2)
+                y_cord = wHeight/2-100;
+            else
+                y_cord = wHeight/2+100;
+            end
+       end
+
+        shape = randi(3,1);
+        if (shape == 1)
+            x_change = 2*x_jitter;
+            y_change = y_jitter;
+        elseif (shape == 2)
+            x_change = x_jitter;
+            y_change = 2*y_jitter;
+        else
+            x_change = x_jitter;
+            y_change = y_jitter;
+        end
+
+        x1 = round(x_cord-x_change);
+        x2 = round(x_cord+x_change);
+        y1 = round(y_cord-y_change);
+        y2 = round(y_cord+y_change);
     end
 
     % Generate location
@@ -379,8 +400,16 @@ for j = 1:Rep
     elseif (choice == 4)
         rects = genLocation_gabor (amount, margin, wWidth, wHeight, diam);
 
-    elseif (choice == 5) 
-        rects = genLocation_cluster (amount, x1, x2, y1, y2, wWidth, wHeight, diam);
+    elseif (choice == 5)
+        clustor_type = randi(3,1);
+        if (clustor_type == 1)
+            type = 'tight';
+        elseif (clustor_type == 2)
+            type = 'spread';
+        else
+            type = 'elongated';
+        end
+        rects = genLocation_cluster (amount, x1, x2, y1, y2, wWidth, wHeight, diam, type);
 
     end
 
@@ -491,10 +520,18 @@ for j = 1:Rep
             format_str = '25:15';
         elseif isequal(tilt_choice, second)
             format_str = '15:25';
+        elseif isequal(tilt_choice, third)
+            format_str = '15:10';
+        else
+            format_str = '10:15';
         end
     end
-
-    img_name = sprintf('%s_capturedImage_%03d.png', format_str, j);
+    
+    if (choice == 1 || choice == 3 || choice == 4)
+        img_name = sprintf('%s_capturedImage_%03d.png', format_str, j);
+    else
+        img_name = sprintf('capturedImage_%03d.png', j);
+    end
 
     filename = fullfile(saveDir, img_name);
     imwrite(trialImage, filename);
@@ -564,17 +601,78 @@ for j = 1:Rep
         ifi = Screen('GetFlipInterval', window);
         waitframes = 1;
         vbl = Screen('Flip', window);
+
+        % Real Cross
+        drawCross(window, x_cord, y_cord, 10, red);
         
+        % Sample Crosses
+        cross_size = 10;
+        min_distance = cross_size;
+
+        drawn_centers = NaN(5, 2);
+        valid_crosses = 0;
+
+        while valid_crosses < 5
+            sample_picks = randi([1 16], 1, 10);
+        
+            xVals = zeros(1, 10);
+            yVals = zeros(1, 10);
+        
+            % Calculate xVals and yVals as the average center of the selected rects
+            for k = 1:10
+                xVals(k) = (rects(sample_picks(k), 1) + rects(sample_picks(k), 3)) / 2;
+                yVals(k) = (rects(sample_picks(k), 2) + rects(sample_picks(k), 4)) / 2;
+            end
+            xVal = mean(xVals);
+            yVal = mean(yVals);
+        
+            % Check overlap with the real cross using the average position
+            real_distance = sqrt((x_cord - xVal)^2 + (y_cord - yVal)^2);
+            
+            if real_distance < min_distance
+                overlap = true;
+            else
+                if valid_crosses == 0
+                    overlap = false;
+                else
+                    % Calculate the distances between the new cross and all previously drawn crosses
+                    distances = sqrt((drawn_centers(1:valid_crosses, 1) - xVal).^2 + ...
+                                     (drawn_centers(1:valid_crosses, 2) - yVal).^2);
+                    overlap = any(distances < min_distance);
+                end
+        
+                % If no overlap, add the cross and increment valid_crosses
+                if ~overlap
+                    valid_crosses = valid_crosses + 1;
+                    drawn_centers(valid_crosses, :) = [xVal, yVal];
+                end
+            end
+            
+            % Break the loop if we have drawn 5 valid crosses
+            if valid_crosses >= 5
+                break;
+            end
+        end
+
+        for i = 1:5
+            drawCross(window, drawn_centers(i, 1), drawn_centers(i, 2), cross_size, blue);
+        end
+
         buttons = 0;
         while ~any(buttons)
             % Get the current position of the mouse
             [x, y, buttons] = GetMouse(window);
-    
+
             x = min(x, screenXpixels);
             y = min(y, screenYpixels);
 
+            drawCross(window, x_cord, y_cord, cross_size, red);
+            for i = 1:5
+                drawCross(window, drawn_centers(i, 1), drawn_centers(i, 2), cross_size, blue);
+            end
+
             Screen('DrawDots', window, [x y], 10, blue, [], 2);
-            
+
             click_record = [x,y];
 
             vbl = Screen('Flip', window, vbl + (waitframes - 0.5) * ifi);
@@ -749,7 +847,7 @@ for j = 1:Rep
         results{j, 4} = cond;
     elseif (choice == 4) 
         results{j, 1} = j;
-        results{j, 2} = sets(mod(j - 1, 2) + 1);
+        results{j, 2} = sets(mod(j - 1, 4) + 1);
         results{j, 3} = 'LEFT: ';
         for k = 1:amount
             results{j, 3} = [results{j, 3} ' ' num2str(angles_left(k))];
