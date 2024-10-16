@@ -1,4 +1,4 @@
-
+% Leo Qi
 % Initialize Psychtoolbox and open a window
 close all;
 clearvars;
@@ -24,15 +24,15 @@ keyCodeF = KbName('f');
 keyCodeJ = KbName('j');
 
 % Define window size
-wWidth = 900;
-wHeight = 650;
+% wWidth = 900;
+% wHeight = 650;
 
 % Variables to take user input
 subjectName = input('Subject Name: ', 's');
 dateStr = string(datetime('today'), 'yyyy-MM-dd'); 
 
 % Create directory to hold trial images
-parentDir = '/Users/leoqi/Desktop/ImLab/Results';
+parentDir = 'Results';
 saveDir = fullfile(parentDir, ['captured_images_', subjectName]);
 if ~exist(saveDir, 'dir')
     mkdir(saveDir);
@@ -41,6 +41,8 @@ end
 % Ask whether testing dots or faces
 choice = input("Stimulus Type?\n[1] Min Size\n[2] Emotion\n[3] Dots Num\n" + ...
                 "[4] Gabors\n[5] Average Location\n");
+
+scale_val = round(input("Enter a Scaling Factor Fit for screen 1=Default\n"));
 
 numInstances = 1;
 if (choice == 1)
@@ -72,21 +74,23 @@ if ~(choice == 5)
 end
 
 % Open an on-screen window with grey background color
-[window, windowRect] = Screen('OpenWindow', screenNumber, grey, [0,0,wWidth,wHeight]);
+[window, windowRect] = Screen('OpenWindow', screenNumber, grey); %[0,0,wWidth,wHeight]
+[wWidth, wHeight] = Screen('WindowSize', window);
 
 %----------------------------------------------------------------------
 %                       Default Setups
 %----------------------------------------------------------------------
 if (choice == 1)
     % Default for min size
-    margin = 75;
+    margin = 80 + scale_val*10;
+    sigma = 20;
     amount = 8;
 
     % Define discrete sets as means Left and Right
-    first = [60,80];
-    second = [80,60];
-    third = [50,60];
-    fourth = [60,50];
+    first = [60 + scale_val*10,80 + scale_val*10];
+    second = [80 + scale_val*10,60 + scale_val*10];
+    third = [50 + scale_val*10,60 + scale_val*10];
+    fourth = [60 + scale_val*10,50 + scale_val*10];
 
     % Matrix to record results
     results = cell(Rep, 4);
@@ -94,8 +98,8 @@ if (choice == 1)
 elseif (choice == 2)
     % Default for faces
     amount = 8;
-    margin = 60;
-    diam = margin;
+    margin = 60 + scale_val*10;
+    diam = 100 + scale_val*10;
 
     % Define discrete sets as emotional means Left and Right
     first = [26,16];
@@ -108,7 +112,7 @@ elseif (choice == 2)
 
     % Face Upload
     % Load faces images from directory
-    imageDir = '/Users/leoqi/Desktop/ImLab/Code/faces';
+    imageDir = 'faces_new';
     imageFiles = dir(fullfile(imageDir, '*.jpg'));
 
     % Preallocate cell array to hold face image textures
@@ -134,17 +138,19 @@ elseif (choice == 2)
             % If the image is grayscale, replicate the values across the 3 color channels
             img = repmat(img, [1 1 3]);
         end
-
-        imageMatrix = remove_background(img);
-        imageTextures{i} = Screen('MakeTexture', window, imageMatrix);
+        
+        %%% Code to remove background if needed
+        % chunkSize = 1000;
+        % imageMatrix = remove_background(img, chunkSize); % For images with shoulders
+        imageTextures{i} = Screen('MakeTexture', window, img);
         imageFileNames{i} = imageFiles(i).name;  % Store the original file name
     end
 
 elseif (choice == 3)
     % Default for dots num
     dots_base = randi([30,90],1,Rep);
-    margin = 60;
-    diam = 20;
+    margin = 60 + scale_val*10;
+    diam = 20 + scale_val*10;
 
     % Define discrete ratios of dots
     first = [3,5];
@@ -157,8 +163,8 @@ elseif (choice == 3)
 
 elseif (choice == 4)
     % Default for gabors
-    margin = 60;
-    diam = 80;
+    margin = 60 + scale_val*10;
+    diam = margin+20;
     amount = 8;
 
     % Define discrete sets as tilt values Left and Right
@@ -212,7 +218,7 @@ for j = 1:Rep
     % Select image for emotions trial
     if (choice == 2)
 
-        switch (sets(j))
+        switch (sets(mod(j - 1, 4) + 1))
    
             case 1
                 emotion_choice = first;
@@ -245,7 +251,7 @@ for j = 1:Rep
         distribution_right = round(normal_distribution_right);
         
         % Set up based on how face pictures stored
-        face_sets = [0,51,102,153,204,255,0,204]; %Last 2 values added due to insufficient sets
+        face_sets = [0,51,102,153,204,255,306,357]; %Last 2 values added due to insufficient sets
 
         face_sets = face_sets(randperm(length(face_sets)));
 
@@ -389,10 +395,10 @@ for j = 1:Rep
 
     % Generate location
     if (choice == 1)
-        rects = genLocation_min_size (amount, margin, wWidth, wHeight, min_size_choice);
+        rects = genLocation_min_size (amount, margin, wWidth, wHeight, min_size_choice, sigma);
 
     elseif (choice == 2)
-        rects = genLocation_emotion (amount, margin, wWidth, wHeight, diam);
+        rects = genLocation_gabor (amount, margin, wWidth, wHeight, diam);
 
     elseif (choice == 3)
         rects = genLocation_num (amount_left, amount_right, margin, wWidth, wHeight, diam);
@@ -417,14 +423,22 @@ for j = 1:Rep
 %                       Trial Display
 %----------------------------------------------------------------------
 
-    % Grey Background
-    Screen('FillRect',window,grey,[0,0,wWidth,wHeight])
-    
+    % Grey or White Background
+    if ~(choice == 2)
+        Screen('FillRect',window,grey,[0,0,wWidth,wHeight])
+    else
+        Screen('FillRect',window,white,[0,0,wWidth,wHeight])
+    end
+
     % Draw cross at center
     [xCenter, yCenter] = RectCenter(windowRect);
     crossLength = 20;
-    drawCross(window, xCenter, yCenter, crossLength, white);
-    
+    if ~(choice == 2)
+        drawCross(window, xCenter, yCenter, crossLength, white);
+    else
+        drawCross(window, xCenter, yCenter, crossLength, grey);
+    end
+
     % Output
     Screen('Flip', window);
 
@@ -440,7 +454,7 @@ for j = 1:Rep
         for i = 1:amount
             Screen('DrawTexture', window, selectImageTextures_L{i}, [], rects(i,:));
             Screen('DrawTexture', window, selectImageTextures_R{i}, [], rects(amount+i,:));
-            drawCross(window, xCenter, yCenter, crossLength, white);
+            drawCross(window, xCenter, yCenter, crossLength, grey);
         end
     elseif (choice == 4)
         % Make standard distribution of angles centered at tilt choice
@@ -505,6 +519,16 @@ for j = 1:Rep
         else
             format_str = '6:5';
         end
+    elseif (choice == 2)
+        if isequal(emotion_choice, first)
+            format_str = '25:15';
+        elseif isequal(emotion_choice, second)
+            format_str = '15:25';
+        elseif isequal(emotion_choice, third)
+            format_str = '15:10';
+        else
+            format_str = '10:15';
+        end
     elseif (choice == 3)
         if isequal(num_choice, first)
             format_str = '3:5';
@@ -527,7 +551,7 @@ for j = 1:Rep
         end
     end
     
-    if (choice == 1 || choice == 3 || choice == 4)
+    if (choice == 1 || choice == 2 || choice == 3 || choice == 4)
         img_name = sprintf('%s_capturedImage_%03d.png', format_str, j);
     else
         img_name = sprintf('capturedImage_%03d.png', j);
@@ -613,13 +637,13 @@ for j = 1:Rep
         valid_crosses = 0;
 
         while valid_crosses < 5
-            sample_picks = randi([1 16], 1, 10);
+            sample_picks = randi([1 16], 1, 4);
         
-            xVals = zeros(1, 10);
-            yVals = zeros(1, 10);
+            xVals = zeros(1, 4);
+            yVals = zeros(1, 4);
         
             % Calculate xVals and yVals as the average center of the selected rects
-            for k = 1:10
+            for k = 1:4
                 xVals(k) = (rects(sample_picks(k), 1) + rects(sample_picks(k), 3)) / 2;
                 yVals(k) = (rects(sample_picks(k), 2) + rects(sample_picks(k), 4)) / 2;
             end
@@ -827,7 +851,7 @@ for j = 1:Rep
         results{j, 4} = cond;
     elseif (choice == 2)
         results{j, 1} = j;
-        results{j, 2} = sets(j);
+        results{j, 2} = sets(mod(j - 1, 4) + 1);
         results{j, 3} = key;
         results{j, 4} = cond;
 
@@ -897,9 +921,11 @@ end
 
     % Display results
     disp(Table);
-
+    
+    
     matrixName = strcat(subjectName,'_',dateStr,'.xls');
-    writetable(Table, matrixName);
+    fullPath = fullfile(parentDir, matrixName);
+    writetable(Table, fullPath);
 
 %%
 sca;

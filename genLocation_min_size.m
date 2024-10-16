@@ -1,4 +1,4 @@
-function result = genLocation_min_size(amount, margin, wWidth, wHeight, min_size_choice)
+function result = genLocation_min_size(amount, margin, wWidth, wHeight, min_size_choice, sigma)
 %This function supports the min_size experiment generating appropriate
 %coords
 %   It also takes selected set for standard deviation
@@ -6,7 +6,6 @@ function result = genLocation_min_size(amount, margin, wWidth, wHeight, min_size
     % Separate means for left and right sides
     mu_left = min_size_choice(1);
     mu_right = min_size_choice(2);
-    sigma = 25;
 
     % Generate normally distributed random numbers for both sides
     normal_distribution_left = mu_left + sigma * randn(amount, 1);
